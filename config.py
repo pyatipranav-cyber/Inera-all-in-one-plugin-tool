@@ -50,12 +50,35 @@ def env_bool(name: str, default: bool) -> bool:
 
 
 # ---------------------------------------------------------------- storage
-DATA_DIR = Path(env_str("INERA_DATA_DIR") or (Path.home() / "inera_data")).expanduser().resolve()
+SERVERLESS = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+
+
+def _pick_data_dir() -> Path:
+    """Choose a writable data folder. On Vercel/serverless only /tmp is writable (and it is temporary)."""
+    import tempfile
+    candidates = []
+    if env_str("INERA_DATA_DIR"):
+        candidates.append(Path(env_str("INERA_DATA_DIR")).expanduser())
+    if SERVERLESS:
+        candidates.append(Path(tempfile.gettempdir()) / "inera_data")
+    else:
+        candidates.append(Path.home() / "inera_data")
+    candidates.append(Path(tempfile.gettempdir()) / "inera_data")  # last-resort fallback
+    for cand in candidates:
+        try:
+            cand = cand.resolve()
+            (cand / "files").mkdir(parents=True, exist_ok=True)
+            (cand / "tmp").mkdir(parents=True, exist_ok=True)
+            return cand
+        except OSError:
+            continue
+    raise RuntimeError("No writable data directory found. Set INERA_DATA_DIR to a writable folder.")
+
+
+DATA_DIR = _pick_data_dir()
 FILES_DIR = DATA_DIR / "files"
 TMP_DIR = DATA_DIR / "tmp"
 DB_PATH = DATA_DIR / "inera.db"
-for _d in (DATA_DIR, FILES_DIR, TMP_DIR):
-    _d.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------- server
 HOST = env_str("INERA_HOST", "0.0.0.0")

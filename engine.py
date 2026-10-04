@@ -423,6 +423,9 @@ def start():
     db.init()
     db.execute("UPDATE jobs SET status='failed', error='Interrupted by a server restart — please run it again.', "
                f"finished_at=? WHERE status IN ({','.join('?' * len(ACTIVE))})", (time.time(), *ACTIVE))
+    if config.SERVERLESS:
+        log.warning("Serverless host detected: background scheduler disabled (functions sleep between requests).")
+        return
     t = threading.Thread(target=_loop, name="inera-scheduler", daemon=True)
     t.start()
 
