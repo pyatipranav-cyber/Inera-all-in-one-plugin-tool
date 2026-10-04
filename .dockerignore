@@ -1,0 +1,6 @@
+.env
+__pycache__
+*.pyc
+inera_data
+*.zip
+.git
